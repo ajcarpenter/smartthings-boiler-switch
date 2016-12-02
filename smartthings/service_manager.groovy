@@ -17,7 +17,7 @@ definition(
 		name: "Boiler Switch Service Manager",
 		namespace: "ajcarpenter",
 		author: "Andrew Carpenter",
-		description: "",
+		description: "Service manager for boiler switch discovery",
 		category: "SmartThings Labs",
 		iconUrl: "https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience.png",
 		iconX2Url: "https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience@2x.png",
@@ -82,11 +82,10 @@ def initialize() {
 }
 
 def pollChildren(){
-	log.debug "ENTER POLLING"
 	def devices = getVerifiedDevices()
     devices.each {
-    	log.debug "POLLING ${ it.value }"
-    	it.value.poll()
+    	def device = getChildDevice(it.value.mac)
+        sendHubCommand(device.poll())
     }
 }
 
