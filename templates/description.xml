@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root xmlns="urn:schemas-upnp-org:device-1-0">
+	<specVersion>
+		<major>1</major>
+		<minor>0</minor>
+	</specVersion>
+	<URLBase>http://{{ ip }}:{{ port }}/</URLBase>
+	<device>
+		<deviceType>{{ st }}</deviceType>
+		<friendlyName>Boiler Switch ({{ ip }})</friendlyName>
+		<manufacturer>ajcarpenter</manufacturer>
+		<manufacturerURL>https://github.com/ajcarpenter</manufacturerURL>
+		<modelDescription>Custom Worcester Boiler Switch</modelDescription>
+		<modelName>Boiler Switch 2015</modelName>
+		<modelNumber>AC001</modelNumber>
+		<modelURL>https://github.com/ajcarpenter</modelURL>
+		<serialNumber>001</serialNumber>
+		<UDN>{{ usn }}</UDN>
+	</device>
+</root>
