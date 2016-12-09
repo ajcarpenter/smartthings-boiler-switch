@@ -18,6 +18,14 @@ metadata {
         capability "Thermostat Mode"
         capability "Temperature Measurement"
         capability "Refresh"
+        capability "Image Capture"
+    }
+
+    preferences {
+        section {
+            input title: "Temperature Offset", description: "This feature allows you to correct any temperature variations by selecting an offset. Ex: If your sensor consistently reports a temp that's 5 degrees too warm, you'd enter '-5'. If 3 degrees too cold, enter '+3'.", displayDuringSetup: false, type: "paragraph", element: "paragraph"
+            input "tempOffset", "decimal", title: "Degrees", description: "Adjust temperature by this many degrees", displayDuringSetup: false
+        }
     }
 
     simulator {
@@ -29,34 +37,61 @@ metadata {
             state "default", label:'', action:"refresh.refresh", icon:"st.secondary.refresh"
         }
         
+        carouselTile("cameraDetails", "device.image", width: 3, height: 2) { }
+        standardTile("take", "device.image", width: 2, height: 2, canChangeIcon: false, inactiveLabel: true, canChangeBackground: false) {
+            state "take", label: "Take", action: "Image Capture.take", icon: "st.camera.camera", backgroundColor: "#FFFFFF", nextState:"taking"
+            state "taking", label:'Taking', action: "", icon: "st.camera.take-photo", backgroundColor: "#53a7c0"
+            state "image", label: "Take", action: "Image Capture.take", icon: "st.camera.camera", backgroundColor: "#FFFFFF", nextState:"taking"
+        }
+        
         standardTile("toggleHeat", "device.thermostatMode", width: 2, height: 2) {
             state "off", label: "off", icon: "st.switches.switch.off", backgroundColor: "#ffffff", action: "heat"
             state "heat", label: "on", icon: "st.switches.switch.on", backgroundColor: "#79b821", action: "off"
         }
     
         // value tile (read only)
-        valueTile("temperatureMeasurement", "device.temperatureMeasurement", decoration: "flat", width: 2, height: 2) {
-            state "temperatureMeasurement", label:'${currentValue} C'
+        valueTile("temperature", "device.temperature", decoration: "flat", width: 2, height: 2) {
+            state "temperature", label:'${currentValue} C'
         }
 
         // the "switch" tile will appear in the Things view
-        main("temperatureMeasurement")
+        main("temperature")
 
         // the "switch" and "power" tiles will appear in the Device Details
         // view (order is left-to-right, top-to-bottom)
-        details(["thermostatFull", "refresh", "temperatureMeasurement", "toggleHeat"])
+        details(["cameraDetails", "take", "refresh", "temperature"])
     }
 }
 
 // parse events into attributes
 def parse(String description) {
     def response = parseLanMessage(description)
-    def celsius = response.json.temperature_c
-    def mode = response.json.mode
-    return [
-        createEvent(name:"temperatureMeasurement", value: celsius),
-        createEvent(name:"thermostatMode", value: mode)
-    ]
+    def celsius = response?.json?.temperature_c
+    def mode = response?.json?.mode
+    def image = response?.headers?.location
+    log.debug response
+    def events = []
+    
+    if (celsius) {
+        if (tempOffset) {
+            celsius += tempOffset
+        }
+        events.push(createEvent(name:"temperature", value: celsius, unit: 'C'))
+    }
+    
+    if (mode) {
+        events.push(createEvent(name:"thermostatMode", value: mode))
+    }
+    
+    if (image) {
+        httpGet( image ){ imgResponse ->
+            def id = new java.text.SimpleDateFormat("yyyyMMddHHmmss").format(new Date());
+            storeImage(id, imgResponse.data)
+            sendEvent(name:"image", value: id)
+        }
+    }
+
+    return events
 }
 
 def poll() {
@@ -73,6 +108,17 @@ def getTemperature() {
     )
 }
 
+def take() {
+    def hubAction = new physicalgraph.device.HubAction(
+        method: "GET",
+        path: "/captureimage",
+        headers: [
+            HOST: getHostAddress()
+        ]
+    )
+    return hubAction
+}
+
 def heat() {
     def json = new groovy.json.JsonBuilder()
     json.call("mode":"heat")
@@ -86,6 +132,15 @@ def heat() {
             HOST: getHostAddress()
         ]
     )
+}
+
+def setThermostatMode(mode) {
+    switch(mode) {
+        case "heat":
+            return heat();
+        case "off":
+            return off();
+    }
 }
 
 def off() {
